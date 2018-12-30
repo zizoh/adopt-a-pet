@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -39,13 +40,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class FormFragment extends Fragment {
+public class FormFragment extends Fragment implements View.OnClickListener {
 
     private static final String EXTRA_PAGE = "com.zizohanto.adoptapet.ui.EXTRA_PAGE";
     static Gson mGson;
     private ArrayList<String> mActionDependentViewsUniqueIds = new ArrayList<>();
     private Page mPage;
     private FragmentFormBinding mFragmentFormBinding;
+    private OnPageChangeListener mOnPageChangeListener;
 
     public FormFragment() {
         // Requires empty public constructor
@@ -108,13 +110,14 @@ public class FormFragment extends Fragment {
                     case "embeddedphoto":
                         if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
                             ImageView imageView = new ImageView(context);
+                            LinearLayout.LayoutParams lpEmbeddedPhoto = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                            imageView.setLayoutParams(lpEmbeddedPhoto);
                             imageView.setAdjustViewBounds(true);
                             imageView.setContentDescription("Pet Photo");
                             imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
                             Picasso.with(context)
                                     .load(element.getFile())
-                                    .error(context.getResources().getDrawable(R.drawable.no_image))
                                     .placeholder(context.getResources().getDrawable(R.drawable.no_image))
                                     .into(imageView);
                             baseLayout.addView(imageView);
@@ -228,6 +231,10 @@ public class FormFragment extends Fragment {
                 }
             }
         }
+        Button mNextBtn = mFragmentFormBinding.nextButton;
+        mNextBtn.setOnClickListener(this);
+        Button mPrevBtn = mFragmentFormBinding.previousButton;
+        mPrevBtn.setOnClickListener(this);
         return root;
     }
 
@@ -251,6 +258,37 @@ public class FormFragment extends Fragment {
             e.printStackTrace();
         }
         return monthDate.format(date);
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        if (context instanceof OnPageChangeListener) {
+            mOnPageChangeListener = (OnPageChangeListener) context;
+        } else {
+            throw new ClassCastException(context.toString()
+                    + getString(R.string.error_interface));
+        }
+    }
+
+    @Override
+    public void onClick(View view) {
+        int id = view.getId();
+        switch (id) {
+            case R.id.next_button:
+                mOnPageChangeListener.onNextPageClick();
+                break;
+            case R.id.previous_button:
+                mOnPageChangeListener.onPrevPageClick();
+                break;
+        }
+    }
+
+    public interface OnPageChangeListener {
+
+        void onPrevPageClick();
+
+        void onNextPageClick();
     }
 
 }

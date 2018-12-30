@@ -2,6 +2,7 @@ package com.zizohanto.adoptapet.ui;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 
@@ -10,14 +11,15 @@ import com.google.gson.GsonBuilder;
 import com.zizohanto.adoptapet.R;
 import com.zizohanto.adoptapet.data.Page;
 import com.zizohanto.adoptapet.data.Pet;
-import com.zizohanto.adoptapet.utils.ActivityUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-public class MainActivity extends AppCompatActivity {
-    private static final String LOG_TAG = MainActivity.class.getSimpleName();
-
+public class MainActivity extends AppCompatActivity implements FormFragment.OnPageChangeListener {
+    private static final String TAG = MainActivity.class.getSimpleName();
+    int mCurrentPage;
+    private Page mPage;
+    private Pet mPet;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,14 +30,15 @@ public class MainActivity extends AppCompatActivity {
 
         //Create gson
         Gson gson = new GsonBuilder().create();
-        Pet pet = gson.fromJson(petJsonString, Pet.class);
+        mPet = gson.fromJson(petJsonString, Pet.class);
 
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
-            actionBar.setTitle(pet.getName());
+            actionBar.setTitle(mPet.getName());
         }
 
-        addFragmentToActivity(pet.getPages().get(2));
+        mPage = mPet.getPages().get(mCurrentPage);
+        createFragment(mPage);
 
     }
 
@@ -63,14 +66,38 @@ public class MainActivity extends AppCompatActivity {
         return json;
     }
 
-    private void addFragmentToActivity(Page page) {
-        FormFragment formFragment =
-                (FormFragment) getSupportFragmentManager().findFragmentById(R.id.content_frame);
-        if (formFragment == null) {
-            // Create the fragment
-            formFragment = FormFragment.newInstance(page);
-            ActivityUtils.addFragmentToActivity(
-                    getSupportFragmentManager(), formFragment, R.id.content_frame);
+    private void createFragment(Page page) {
+        FormFragment formFragment = FormFragment.newInstance(page);
+        getSupportFragmentManager().beginTransaction().
+                add(R.id.content_frame, formFragment).
+                commit();
+    }
+
+    @Override
+    public void onPrevPageClick() {
+        if (mCurrentPage > 0) {
+            mCurrentPage --;
+            goToPage(mPet.getPages().get(mCurrentPage));
+        } else {
+            finish();
         }
+    }
+
+    @Override
+    public void onNextPageClick() {
+        if (mCurrentPage < mPet.getPages().size() - 1) {
+            mCurrentPage ++;
+            goToPage(mPet.getPages().get(mCurrentPage));
+        } else {
+            finish();
+        }
+    }
+
+    private void goToPage(Page page) {
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        FormFragment newFragment = FormFragment.newInstance(page);
+        transaction.replace(R.id.content_frame, newFragment);
+        transaction.addToBackStack(null);
+        transaction.commit();
     }
 }
