@@ -65,7 +65,7 @@ public class FormFragment extends Fragment {
         super.onCreate(savedInstanceState);
 
         if (getArguments() != null) {
-            Type type = new TypeToken<Page>(){
+            Type type = new TypeToken<Page>() {
 
             }.getType();
             mPage = mGson.fromJson(getArguments().getString(EXTRA_PAGE), type);
@@ -106,7 +106,7 @@ public class FormFragment extends Fragment {
                 String type = element.getType();
                 switch (type) {
                     case "embeddedphoto":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())){
+                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
                             ImageView imageView = new ImageView(context);
                             imageView.setAdjustViewBounds(true);
                             imageView.setContentDescription("Pet Photo");
@@ -122,7 +122,7 @@ public class FormFragment extends Fragment {
                         break;
 
                     case "text":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())){
+                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
                             EditText inputEditText = new EditText(context);
                             LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             lpText.setMargins(0, 5, 0, 5);
@@ -130,17 +130,17 @@ public class FormFragment extends Fragment {
                             // set textColor
                             inputEditText.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
                             inputEditText.setHint(element.getLabel());
-                            if(element.getLabel().equals("Email address")){
-                                inputEditText.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+                            if (element.getLabel().equals("Email address")) {
+                                inputEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
                             }
-                            inputEditText.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+                            inputEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
                             // add the EditText(s) to the parent layout
                             baseLayout.addView(inputEditText);
                         }
                         break;
 
                     case "formattednumeric":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())){
+                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
                             EditText numericEditText = new EditText(context);
                             LinearLayout.LayoutParams lpNumericText = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             lpNumericText.setMargins(0, 5, 0, 5);
@@ -154,7 +154,7 @@ public class FormFragment extends Fragment {
                         break;
 
                     case "datetime":
-                        if (mActionDependentViewsUniqueIds.contains(element.getUniqueId())){
+                        if (mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
                             TextView textViewDate = new TextView(context);
                             LinearLayout.LayoutParams lpDate = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             textViewDate.setLayoutParams(lpDate);
@@ -181,7 +181,7 @@ public class FormFragment extends Fragment {
                         break;
 
                     case "yesno":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())){
+                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
                             TextView textViewYesNo = new TextView(context);
                             LinearLayout.LayoutParams lpYesNo = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             textViewYesNo.setLayoutParams(lpYesNo);
@@ -227,9 +227,7 @@ public class FormFragment extends Fragment {
                         break;
                 }
             }
-
         }
-
         return root;
     }
 
@@ -254,6 +252,5 @@ public class FormFragment extends Fragment {
         }
         return monthDate.format(date);
     }
-
 
 }

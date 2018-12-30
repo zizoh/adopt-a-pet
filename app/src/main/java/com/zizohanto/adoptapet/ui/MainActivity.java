@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
             byte[] buffer = new byte[size];
 
+            is.read(buffer);
 
             is.close();
 
@@ -60,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
         return json;
-
     }
 
     private void addFragmentToActivity(Page page) {
