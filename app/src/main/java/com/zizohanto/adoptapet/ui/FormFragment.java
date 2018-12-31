@@ -20,10 +20,12 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.squareup.picasso.Picasso;
+import com.zizohanto.adoptapet.Constants;
 import com.zizohanto.adoptapet.R;
 import com.zizohanto.adoptapet.data.Element;
 import com.zizohanto.adoptapet.data.Page;
@@ -41,11 +43,17 @@ import java.util.List;
 import java.util.Locale;
 
 public class FormFragment extends Fragment implements View.OnClickListener {
-
+    private static final String TAG = FormFragment.class.getSimpleName();
     private static final String EXTRA_PAGE = "com.zizohanto.adoptapet.ui.EXTRA_PAGE";
+
     static Gson mGson;
-    private ArrayList<String> mActionDependentViewsUniqueIds = new ArrayList<>();
+    Context mContext;
+    private ArrayList<String> mActionDependentViewsUniqueIds;
+    private int mBaseLayoutChildViewsCount;
+    private int mInvalidInputs;
+    private ArrayList<String> mUserInputs;
     private Page mPage;
+    private LinearLayout mBaseLayout;
     private FragmentFormBinding mFragmentFormBinding;
     private OnPageChangeListener mOnPageChangeListener;
 
@@ -81,11 +89,14 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         mFragmentFormBinding = DataBindingUtil.inflate(inflater, R.layout.fragment_form, container, false);
         View root = mFragmentFormBinding.getRoot();
 
-        Context context = getActivity();
+        mActionDependentViewsUniqueIds = new ArrayList<>();
+        mUserInputs = new ArrayList<>();
+        mContext = getActivity();
+
         List<Section> sections = mPage.getSections();
         for (int i = 0; i < sections.size(); i++) {
             Section section = sections.get(i);
-            TextView textViewLabel = new TextView(context);
+            TextView textViewLabel = new TextView(mContext);
             LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             textViewLabel.setLayoutParams(textViewParams);
             textViewLabel.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
@@ -93,8 +104,8 @@ public class FormFragment extends Fragment implements View.OnClickListener {
             textViewLabel.setTextAppearance(android.R.style.TextAppearance_Medium);
             textViewLabel.setMaxLines(1);
             textViewLabel.setText(section.getLabel());
-            LinearLayout baseLayout = mFragmentFormBinding.baseLayout;
-            baseLayout.addView(textViewLabel);
+            mBaseLayout = mFragmentFormBinding.baseLayout;
+            mBaseLayout.addView(textViewLabel);
 
             List<Element> elements = section.getElements();
             for (Element element : elements) {
@@ -108,25 +119,25 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                 String type = element.getType();
                 switch (type) {
                     case "embeddedphoto":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
-                            ImageView imageView = new ImageView(context);
+                        if (!isADependent(element)) {
+                            ImageView imageView = new ImageView(mContext);
                             LinearLayout.LayoutParams lpEmbeddedPhoto = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             imageView.setLayoutParams(lpEmbeddedPhoto);
                             imageView.setAdjustViewBounds(true);
                             imageView.setContentDescription("Pet Photo");
                             imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
-                            Picasso.with(context)
+                            Picasso.with(mContext)
                                     .load(element.getFile())
-                                    .placeholder(context.getResources().getDrawable(R.drawable.no_image))
+                                    .placeholder(mContext.getResources().getDrawable(R.drawable.no_image))
                                     .into(imageView);
-                            baseLayout.addView(imageView);
+                            mBaseLayout.addView(imageView);
                         }
                         break;
 
                     case "text":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
-                            EditText inputEditText = new EditText(context);
+                        if (!isADependent(element)) {
+                            EditText inputEditText = new EditText(mContext);
                             LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             lpText.setMargins(0, 5, 0, 5);
                             inputEditText.setLayoutParams(lpText);
@@ -134,17 +145,16 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                             inputEditText.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
                             inputEditText.setHint(element.getLabel());
                             if (element.getLabel().equals("Email address")) {
-                                inputEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+                                inputEditText.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
                             }
-                            inputEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
                             // add the EditText(s) to the parent layout
-                            baseLayout.addView(inputEditText);
+                            mBaseLayout.addView(inputEditText);
                         }
                         break;
 
                     case "formattednumeric":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
-                            EditText numericEditText = new EditText(context);
+                        if (!isADependent(element)) {
+                            EditText numericEditText = new EditText(mContext);
                             LinearLayout.LayoutParams lpNumericText = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             lpNumericText.setMargins(0, 5, 0, 5);
                             numericEditText.setLayoutParams(lpNumericText);
@@ -152,25 +162,38 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                             numericEditText.setInputType(InputType.TYPE_CLASS_PHONE);
                             numericEditText.setHint(element.getLabel());
                             // add the EditText(s) to the parent layout
-                            baseLayout.addView(numericEditText);
+                            mBaseLayout.addView(numericEditText);
                         }
                         break;
 
                     case "datetime":
-                        if (mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
-                            TextView textViewDate = new TextView(context);
+                        if (!isADependent(element)) {
+                            LinearLayout linearLayout = new LinearLayout(mContext);
                             LinearLayout.LayoutParams lpDate = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                            linearLayout.setLayoutParams(lpDate);
+                            linearLayout.setOrientation(LinearLayout.VERTICAL);
+
+                            TextView textViewDateLabel = new TextView(mContext);
+                            textViewDateLabel.setLayoutParams(lpDate);
+                            textViewDateLabel.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
+                            textViewDateLabel.setTypeface(textViewDateLabel.getTypeface(), Typeface.BOLD);
+                            textViewDateLabel.setTextAppearance(android.R.style.TextAppearance_Medium);
+                            textViewDateLabel.setText(element.getLabel());
+
+                            TextView textViewDate = new TextView(mContext);
                             textViewDate.setLayoutParams(lpDate);
                             textViewDate.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
                             textViewDate.setTypeface(textViewDate.getTypeface(), Typeface.BOLD);
+                            textViewDate.setInputType(InputType.TYPE_CLASS_DATETIME);
                             textViewDate.setTextAppearance(android.R.style.TextAppearance_Medium);
-                            textViewDate.setText(element.getLabel());
+                            textViewDate.setText(Constants.PICK_A_DATE);
+
                             textViewDate.setOnClickListener(view -> {
                                 Calendar calendar = Calendar.getInstance();
                                 int year = calendar.get(Calendar.YEAR);
                                 int month = calendar.get(Calendar.MONTH);
                                 int day = calendar.get(Calendar.DAY_OF_MONTH);
-                                DatePickerDialog startDateDialog = new DatePickerDialog(context, (datePicker, year1, month1, day1) -> {
+                                DatePickerDialog startDateDialog = new DatePickerDialog(mContext, (datePicker, year1, month1, day1) -> {
                                     String selDate = year1 + "-" + (month1 + 1) + "-" + day1;
                                     textViewDate.setText(getFormattedDate(selDate));
                                 }, year, month, day);
@@ -179,31 +202,33 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                                 startDateDialog.getDatePicker().setMaxDate(calendar.getTimeInMillis());
                                 startDateDialog.show();
                             });
-                            baseLayout.addView(textViewDate);
+                            linearLayout.addView(textViewDateLabel);
+                            linearLayout.addView(textViewDate);
+                            mBaseLayout.addView(linearLayout);
                         }
                         break;
 
                     case "yesno":
-                        if (!mActionDependentViewsUniqueIds.contains(element.getUniqueId())) {
-                            TextView textViewYesNo = new TextView(context);
+                        if (!isADependent(element)) {
+                            TextView textViewYesNo = new TextView(mContext);
                             LinearLayout.LayoutParams lpYesNo = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             textViewYesNo.setLayoutParams(lpYesNo);
                             textViewYesNo.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
                             textViewYesNo.setTypeface(textViewYesNo.getTypeface(), Typeface.BOLD);
                             textViewYesNo.setTextAppearance(android.R.style.TextAppearance_Medium);
                             textViewYesNo.setText(element.getLabel());
-                            baseLayout.addView(textViewYesNo);
+                            mBaseLayout.addView(textViewYesNo);
 
-                            Spinner inputSpinner = new Spinner(context);
+                            Spinner inputSpinner = new Spinner(mContext);
                             lpYesNo.setMargins(0, 5, 0, 5);
                             inputSpinner.setLayoutParams(lpYesNo);
                             // populate spinner with String Array
-                            ArrayAdapter<String> adapter = populateSpinner(context);
+                            ArrayAdapter<String> adapter = populateSpinner(mContext);
                             inputSpinner.setAdapter(adapter);
                             // add the spinner(s) to the parent layout
-                            baseLayout.addView(inputSpinner);
+                            mBaseLayout.addView(inputSpinner);
 
-                            EditText inputEditText = new EditText(context);
+                            EditText inputEditText = new EditText(mContext);
                             LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             lpText.setMargins(0, 5, 0, 5);
                             inputEditText.setLayoutParams(lpText);
@@ -211,7 +236,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                             inputEditText.setTextColor(FormFragment.this.getResources().getColor(R.color.colorPrimaryDark));
 
                             inputEditText.setHint(element.getLabel());
-                            baseLayout.addView(inputEditText);
+                            mBaseLayout.addView(inputEditText);
                             inputEditText.setVisibility(View.GONE);
                             inputSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                                 @Override
@@ -229,13 +254,19 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         }
                         break;
                 }
+                mBaseLayoutChildViewsCount = mBaseLayout.getChildCount();
             }
         }
         Button mNextBtn = mFragmentFormBinding.nextButton;
         mNextBtn.setOnClickListener(this);
         Button mPrevBtn = mFragmentFormBinding.previousButton;
         mPrevBtn.setOnClickListener(this);
+
         return root;
+    }
+
+    private boolean isADependent(Element element) {
+        return mActionDependentViewsUniqueIds.contains(element.getUniqueId());
     }
 
     @NonNull
@@ -276,7 +307,10 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         int id = view.getId();
         switch (id) {
             case R.id.next_button:
-                mOnPageChangeListener.onNextPageClick();
+                validateAnswers();
+                if (mInvalidInputs <= 0) {
+                    mOnPageChangeListener.onNextPageClick();
+                }
                 break;
             case R.id.previous_button:
                 mOnPageChangeListener.onPrevPageClick();
@@ -284,7 +318,43 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         }
     }
 
-    public interface OnPageChangeListener {
+    public void validateAnswers() {
+        int invalidInputs = 0;
+        for (int i = 0; i < mBaseLayoutChildViewsCount; i++) {
+            View view1 = mBaseLayout.getChildAt(i);
+            if (view1 instanceof EditText) {
+                EditText editText = ((EditText) view1);
+                String userInput = editText.getText().toString();
+                if (!userInput.isEmpty()) {
+                    mUserInputs.add(userInput);
+                } else {
+                    invalidInputs++;
+                    editText.setError("Please enter the required text");
+                }
+            } else if (view1 instanceof Spinner) {
+                String text = ((Spinner) view1).getSelectedItem().toString();
+                if (!text.equals("Select")) {
+                    mUserInputs.add(text);
+                } else {
+                    invalidInputs++;
+                    Toast.makeText(mContext, "Please select an entry", Toast.LENGTH_SHORT).show();
+                }
+            } else if (view1 instanceof LinearLayout) {
+                LinearLayout ll = ((LinearLayout) view1);
+                TextView dateTextView = (TextView) ll.getChildAt(1);
+                String userInput = dateTextView.getText().toString();
+                if (!userInput.equals(Constants.PICK_A_DATE)) {
+                    mUserInputs.add(userInput);
+                } else {
+                    invalidInputs++;
+                    dateTextView.setError("Please pick a date");
+                }
+            }
+        }
+        mInvalidInputs = invalidInputs;
+    }
+
+    interface OnPageChangeListener {
 
         void onPrevPageClick();
 

@@ -43,22 +43,14 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     }
 
     public String loadJSONFromAsset(Context context) {
-
         String json;
         try {
             InputStream is = context.getAssets().open("pet_adoption-1.json");
-
             int size = is.available();
-
             byte[] buffer = new byte[size];
-
             is.read(buffer);
-
             is.close();
-
             json = new String(buffer, "UTF-8");
-
-
         } catch (IOException ex) {
             ex.printStackTrace();
             return null;
