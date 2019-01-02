@@ -8,13 +8,17 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.view.ContextThemeWrapper;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -35,6 +39,7 @@ import com.zizohanto.adoptapet.data.Page;
 import com.zizohanto.adoptapet.data.Rule;
 import com.zizohanto.adoptapet.data.Section;
 import com.zizohanto.adoptapet.databinding.FragmentFormBinding;
+import com.zizohanto.adoptapet.utils.SharedPreferenceUtils;
 import com.zizohanto.adoptapet.utils.ValidatorUtils;
 
 import java.lang.reflect.Type;
@@ -50,14 +55,17 @@ import java.util.Locale;
 public class FormFragment extends Fragment implements View.OnClickListener {
     private static final String TAG = FormFragment.class.getSimpleName();
     private static final String EXTRA_PAGE = "com.zizohanto.adoptapet.ui.EXTRA_PAGE";
+    private static final String EXTRA_PAGE_NUMBER = "com.zizohanto.adoptapet.ui.EXTRA_PAGE_NUMBER";
+    private static final String EXTRA_PAGE_POSITION = "com.zizohanto.adoptapet.ui.EXTRA_PAGE_POSITION";
 
-    static Gson mGson;
-    Context mContext;
+    private Context mContext;
     private ArrayList<String> mActionDependentViewsUniqueIds;
     private int mBaseLayoutChildViewsCount;
+    private Page mPage;
+    private int mCurrentPageNumber;
+    private int mCurrentPagePosition;
     private int count;
     private HashMap<String, String> mElementIdAndUserInputMap;
-    private Page mPage;
     private LinearLayout mBaseLayout;
     private FragmentFormBinding mFragmentFormBinding;
     private OnPageChangeListener mOnPageChangeListener;
@@ -66,11 +74,13 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         // Requires empty public constructor
     }
 
-    public static FormFragment newInstance(Page page) {
+    public static FormFragment newInstance(Page page, int pageNumber, int pagePosition) {
         FormFragment fragment = new FormFragment();
         Bundle b = new Bundle();
-        mGson = new Gson();
-        b.putString(EXTRA_PAGE, mGson.toJson(page));
+        Gson gson = new Gson();
+        b.putString(EXTRA_PAGE, gson.toJson(page));
+        b.putInt(EXTRA_PAGE_NUMBER, pageNumber);
+        b.putInt(EXTRA_PAGE_POSITION, pagePosition);
         fragment.setArguments(b);
         return fragment;
     }
@@ -83,7 +93,10 @@ public class FormFragment extends Fragment implements View.OnClickListener {
             Type type = new TypeToken<Page>() {
 
             }.getType();
-            mPage = mGson.fromJson(getArguments().getString(EXTRA_PAGE), type);
+            Gson gson = new Gson();
+            mPage = gson.fromJson(getArguments().getString(EXTRA_PAGE), type);
+            mCurrentPageNumber = getArguments().getInt(EXTRA_PAGE_NUMBER);
+            mCurrentPagePosition = getArguments().getInt(EXTRA_PAGE_POSITION);
         }
         mElementIdAndUserInputMap = new HashMap<>();
     }
@@ -243,7 +256,6 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         ArrayAdapter<String> adapter = populateSpinner(mContext);
                         inputSpinner.setAdapter(adapter);
                         setViewTag(element, inputSpinner);
-                        // add the spinner(s) to the parent layout
                         if (isADependentElement(element)) {
                             textViewYesNo.setVisibility(View.GONE);
                             inputSpinner.setVisibility(View.GONE);
@@ -276,19 +288,22 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                 }
             }
         }
-        Button mNextBtn = mFragmentFormBinding.nextButton;
-        mNextBtn.setOnClickListener(this);
-        Button mPrevBtn = mFragmentFormBinding.previousButton;
-        mPrevBtn.setOnClickListener(this);
+        Button nextButton = mFragmentFormBinding.nextButton;
+        nextButton.setOnClickListener(this);
 
+        Button previousButton = mFragmentFormBinding.previousButton;
+        previousButton.setOnClickListener(this);
+
+        Button submitButton = mFragmentFormBinding.submitButton;
+        submitButton.setOnClickListener(this);
+
+        if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_FIRST) {
+            previousButton.setVisibility(View.GONE);
+        } else if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_LAST) {
+            nextButton.setVisibility(View.GONE);
+            submitButton.setVisibility(View.VISIBLE);
+        }
         return root;
-    }
-
-    private void setViewTag(Element element, LinearLayout linearLayout) {
-        ArrayList<String> elementIdAndMandatoryTag = new ArrayList<>();
-        elementIdAndMandatoryTag.add(element.getUniqueId());
-        elementIdAndMandatoryTag.add(String.valueOf(element.getIsMandatory()));
-        linearLayout.setTag(elementIdAndMandatoryTag);
     }
 
     private void showViewWithTag(String target, int visible) {
@@ -316,7 +331,6 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     private EditText getEditText() {
         EditText inputEditText = new EditText(mContext);
         inputEditText.setLayoutParams(getLayoutParams());
-        // set textColor
         inputEditText.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
         return inputEditText;
     }
@@ -347,25 +361,11 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         return mActionDependentViewsUniqueIds.contains(element.getUniqueId());
     }
 
-    private void setViewTag(Element element, Spinner inputSpinner) {
+    private void setViewTag(Element element, View view) {
         ArrayList<String> elementIdAndMandatoryTag = new ArrayList<>();
         elementIdAndMandatoryTag.add(element.getUniqueId());
         elementIdAndMandatoryTag.add(String.valueOf(element.getIsMandatory()));
-        inputSpinner.setTag(elementIdAndMandatoryTag);
-    }
-
-    private void setViewTag(Element element, EditText inputEditText) {
-        ArrayList<String> elementIdAndMandatoryTag = new ArrayList<>();
-        elementIdAndMandatoryTag.add(element.getUniqueId());
-        elementIdAndMandatoryTag.add(String.valueOf(element.getIsMandatory()));
-        inputEditText.setTag(elementIdAndMandatoryTag);
-    }
-
-    private void setViewTag(Element element, TextView inputTextView) {
-        ArrayList<String> elementIdAndMandatoryTag = new ArrayList<>();
-        elementIdAndMandatoryTag.add(element.getUniqueId());
-        elementIdAndMandatoryTag.add(String.valueOf(element.getIsMandatory()));
-        inputTextView.setTag(elementIdAndMandatoryTag);
+        view.setTag(elementIdAndMandatoryTag);
     }
 
     @NonNull
@@ -400,79 +400,68 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         }
     }
 
-    @Override
-    public void onClick(View view) {
-        int id = view.getId();
-        switch (id) {
-            case R.id.next_button:
-                if (isValidated()) {
-                    mOnPageChangeListener.onNextPageClick();
-                }
-                break;
-            case R.id.previous_button:
-                mOnPageChangeListener.onPrevPageClick();
-                break;
-        }
-    }
-
     public boolean isValidated() {
         boolean isValid = true;
         mBaseLayoutChildViewsCount = mBaseLayout.getChildCount();
         for (int i = 0; i < mBaseLayoutChildViewsCount; i++) {
             View view1 = mBaseLayout.getChildAt(i);
-            if (view1 instanceof EditText) {
-                EditText editText = ((EditText) view1);
-                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
-                String elementId = elementIdAndMandatoryTag.get(0);
-                Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
-                String userInput = editText.getText().toString();
-                if (elementIsMandatory) {
-                    if (!userInput.isEmpty()) {
-                        if (isEmailEntry(editText)) {
-                            if (!ValidatorUtils.isValidEmailAddress(userInput)) {
-                                isValid = false;
-                                editText.setError("Please enter a valid email");
+            if (view1.getVisibility() == View.VISIBLE) {
+                if (view1 instanceof EditText) {
+                    EditText editText = ((EditText) view1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
+                    String userInput = editText.getText().toString();
+                    if (elementIsMandatory) {
+                        if (!userInput.isEmpty()) {
+                            if (isEmailEntry(editText)) {
+                                if (!ValidatorUtils.isValidEmailAddress(userInput)) {
+                                    isValid = false;
+                                    editText.setError("Please enter a valid email");
+                                } else mElementIdAndUserInputMap.put(elementId, userInput);
                             }
-                        } else if (isPhoneEntry(editText)) {
-                            if (!ValidatorUtils.isValidPhoneNumber(userInput)) {
-                                isValid = false;
-                                editText.setError("Please enter a valid Nigerian phone number");
+                            if (isPhoneEntry(editText)) {
+                                if (!ValidatorUtils.isValidPhoneNumber(userInput)) {
+                                    isValid = false;
+                                    editText.setError("Please enter a valid Nigerian phone number");
+                                } else mElementIdAndUserInputMap.put(elementId, userInput);
                             }
-                        } else mElementIdAndUserInputMap.put(elementId, userInput);
-                    } else {
-                        isValid = false;
-                        editText.setError("Please enter the required text");
-                    }
-                } else mElementIdAndUserInputMap.put(elementId, userInput);
-            } else if (view1 instanceof Spinner) {
-                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
-                String elementId = elementIdAndMandatoryTag.get(0);
-                Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
-                String text = ((Spinner) view1).getSelectedItem().toString();
-                if (elementIsMandatory) {
-                    if (!text.equals("Select")) {
-                        mElementIdAndUserInputMap.put(elementId, text);
-                    } else {
-                        isValid = false;
-                        Toast.makeText(mContext, "Please select an entry", Toast.LENGTH_SHORT).show();
-                    }
-                } else mElementIdAndUserInputMap.put(elementId, text);
+                            mElementIdAndUserInputMap.put(elementId, userInput);
+                        } else {
+                            isValid = false;
+                            editText.setError("Please enter the required text");
+                        }
+                    } else mElementIdAndUserInputMap.put(elementId, userInput);
+                } else if (view1 instanceof Spinner) {
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
+                    String text = ((Spinner) view1).getSelectedItem().toString();
+                    if (elementIsMandatory) {
+                        if (!text.equals("Select")) {
+                            mElementIdAndUserInputMap.put(elementId, text);
+                        } else {
+                            isValid = false;
+                            Toast.makeText(mContext, "Please select an entry", Toast.LENGTH_SHORT).show();
+                        }
+                    } else mElementIdAndUserInputMap.put(elementId, text);
 
-            } else if (view1 instanceof LinearLayout) {
-                LinearLayout ll = ((LinearLayout) view1);
-                TextView dateTextView = (TextView) ll.getChildAt(1);
-                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
-                String elementId = elementIdAndMandatoryTag.get(0);
-                Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
-                String userInput = dateTextView.getText().toString();
-                if (elementIsMandatory) {
-                    if (userInput.equals(Constants.PICK_A_DATE)) {
-                        isValid = false;
-                        dateTextView.setError("Please pick a date");
-                    } else {
-                        mElementIdAndUserInputMap.put(elementId, userInput);
-                    }
-                } else mElementIdAndUserInputMap.put(elementId, userInput);
+                } else if (view1 instanceof LinearLayout) {
+                    LinearLayout ll = ((LinearLayout) view1);
+                    TextView dateTextView = (TextView) ll.getChildAt(1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
+                    String userInput = dateTextView.getText().toString();
+                    if (elementIsMandatory) {
+                        if (userInput.equals(Constants.PICK_A_DATE)) {
+                            isValid = false;
+                            dateTextView.setError("Please pick a date");
+                        } else {
+                            mElementIdAndUserInputMap.put(elementId, userInput);
+                        }
+                    } else mElementIdAndUserInputMap.put(elementId, userInput);
+                }
             }
         }
         return isValid;
@@ -484,6 +473,61 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 
     private boolean isPhoneEntry(EditText editText) {
         return InputType.TYPE_CLASS_PHONE == editText.getInputType();
+    }
+
+    @Override
+    public void onClick(View view) {
+        int id = view.getId();
+        switch (id) {
+            case R.id.next_button:
+                if (isValidated()) {
+                    saveValue();
+                    mOnPageChangeListener.onNextPageClick();
+                }
+                break;
+            case R.id.previous_button:
+                mOnPageChangeListener.onPrevPageClick();
+                break;
+            case R.id.submit_button:
+                if (isValidated()) {
+                    saveValue();
+                    showVerifyInputsDialog();
+                }
+                break;
+        }
+    }
+
+    private void saveValue() {
+        String jsonString = SharedPreferenceUtils.convertToJSONString(mElementIdAndUserInputMap);
+        SharedPreferenceUtils.setPrefDefaults("page_" + String.valueOf(mCurrentPageNumber), jsonString, mContext);
+    }
+
+    private void showVerifyInputsDialog() {
+        ArrayList<String> pages = new ArrayList<>();
+        for (int i = 0; i < mCurrentPageNumber + 1; i++) {
+            if (SharedPreferenceUtils.prefExists("page_" + String.valueOf(i), mContext)) {
+                String page = SharedPreferenceUtils.getPrefDefaults("page_" + String.valueOf(i), mContext);
+//                JSONObject obj;
+//                try {
+//                    obj = new JSONObject(page);
+//
+//                } catch (Throwable t) {
+//                    Log.e(mContext.getResources().getString(R.string.app_name),
+//                            "Could not parse malformed JSON: \"" + page + "\"");
+//                }
+                pages.add(page);
+            }
+        }
+        String message = TextUtils.join("\n", pages);
+
+        WebView webView = new WebView(mContext);
+        AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(getActivity(),
+                R.style.AlertDialogCustom));
+        builder.setTitle("Inputs")
+                .setView(webView)
+                .setCancelable(true)
+                .setMessage(message)
+                .show();
     }
 
     interface OnPageChangeListener {

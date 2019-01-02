@@ -8,6 +8,7 @@ import android.support.v7.app.AppCompatActivity;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.zizohanto.adoptapet.Constants;
 import com.zizohanto.adoptapet.R;
 import com.zizohanto.adoptapet.data.Page;
 import com.zizohanto.adoptapet.data.Pet;
@@ -17,7 +18,7 @@ import java.io.InputStream;
 
 public class MainActivity extends AppCompatActivity implements FormFragment.OnPageChangeListener {
     private static final String TAG = MainActivity.class.getSimpleName();
-    int mCurrentPage;
+    int mCurrentPageNumber;
     private Page mPage;
     private Pet mPet;
 
@@ -37,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
             actionBar.setTitle(mPet.getName());
         }
 
-        mPage = mPet.getPages().get(mCurrentPage);
+        mPage = mPet.getPages().get(mCurrentPageNumber);
         createFragment(mPage);
 
     }
@@ -59,37 +60,49 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     }
 
     private void createFragment(Page page) {
-        FormFragment formFragment = FormFragment.newInstance(page);
+        FormFragment formFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
         getSupportFragmentManager().beginTransaction().
                 add(R.id.content_frame, formFragment).
                 commit();
     }
 
+    private int getPagePosition() {
+        if (mCurrentPageNumber == 0) {
+            return Constants.CURRENT_PAGE_POSITION_FIRST;
+        } else if (mCurrentPageNumber < mPet.getPages().size() - 1) {
+            return Constants.CURRENT_PAGE_POSITION_BETWEEN;
+        }
+        return Constants.CURRENT_PAGE_POSITION_LAST;
+    }
+
     @Override
     public void onPrevPageClick() {
-        if (mCurrentPage > 0) {
-            mCurrentPage --;
-            goToPage(mPet.getPages().get(mCurrentPage));
-        } else {
-            finish();
+        if (mCurrentPageNumber > 0) {
+            mCurrentPageNumber--;
+            goToPage(mPet.getPages().get(mCurrentPageNumber));
         }
     }
 
     @Override
     public void onNextPageClick() {
-        if (mCurrentPage < mPet.getPages().size() - 1) {
-            mCurrentPage ++;
-            goToPage(mPet.getPages().get(mCurrentPage));
-        } else {
-            finish();
+        if (mCurrentPageNumber < mPet.getPages().size() - 1) {
+            mCurrentPageNumber++;
+            goToPage(mPet.getPages().get(mCurrentPageNumber));
         }
     }
 
     private void goToPage(Page page) {
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        FormFragment newFragment = FormFragment.newInstance(page);
+        FormFragment newFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
         transaction.replace(R.id.content_frame, newFragment);
         transaction.addToBackStack(null);
         transaction.commit();
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+
+        if (mCurrentPageNumber > 0) mCurrentPageNumber--;
     }
 }

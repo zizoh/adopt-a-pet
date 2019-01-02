@@ -27,7 +27,7 @@
 
         </ScrollView>
 
-        <Button
+        <android.support.v7.widget.AppCompatButton
             android:id="@+id/previous_button"
             style="?android:buttonBarButtonStyle"
             android:layout_width="wrap_content"
@@ -38,7 +38,19 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintLeft_toLeftOf="parent" />
 
-        <Button
+        <android.support.v7.widget.AppCompatButton
+            android:id="@+id/submit_button"
+            style="?android:buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical|center_horizontal"
+            android:text="@string/submit_button"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintLeft_toRightOf="@id/previous_button"
+            app:layout_constraintRight_toLeftOf="@id/next_button" />
+
+        <android.support.v7.widget.AppCompatButton
             android:id="@+id/next_button"
             style="?android:buttonBarButtonStyle"
             android:layout_width="wrap_content"
