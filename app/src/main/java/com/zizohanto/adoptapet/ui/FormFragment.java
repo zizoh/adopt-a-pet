@@ -58,13 +58,19 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     private static final String EXTRA_PAGE_NUMBER = "com.zizohanto.adoptapet.ui.EXTRA_PAGE_NUMBER";
     private static final String EXTRA_PAGE_POSITION = "com.zizohanto.adoptapet.ui.EXTRA_PAGE_POSITION";
 
+    private static final String KEY_COUNT = "com.zizohanto.adoptapet.ui.EXTRA_COUNT";
+    private static final String KEY_ACTION_DEPENDENT_VIEWS_UNIQUE_IDS =
+            "com.zizohanto.adoptapet.ui.KEY_ACTION_DEPENDENT_VIEWS_UNIQUE_IDS";
+    private static final String KEY_ELEMENT_ID_AND_USER_INPUT_MAP =
+            "com.zizohanto.adoptapet.ui.KEY_ELEMENT_ID_AND_USER_INPUT_MAP";
+
+
     private Context mContext;
     private ArrayList<String> mActionDependentViewsUniqueIds;
-    private int mBaseLayoutChildViewsCount;
     private Page mPage;
     private int mCurrentPageNumber;
     private int mCurrentPagePosition;
-    private int count;
+    private int mCount;
     private HashMap<String, String> mElementIdAndUserInputMap;
     private LinearLayout mBaseLayout;
     private FragmentFormBinding mFragmentFormBinding;
@@ -89,16 +95,24 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        Gson gson = new Gson();
         if (getArguments() != null) {
             Type type = new TypeToken<Page>() {
 
             }.getType();
-            Gson gson = new Gson();
+
             mPage = gson.fromJson(getArguments().getString(EXTRA_PAGE), type);
             mCurrentPageNumber = getArguments().getInt(EXTRA_PAGE_NUMBER);
             mCurrentPagePosition = getArguments().getInt(EXTRA_PAGE_POSITION);
         }
         mElementIdAndUserInputMap = new HashMap<>();
+        mActionDependentViewsUniqueIds = new ArrayList<>();
+
+        if (savedInstanceState != null) {
+            mCount = savedInstanceState.getInt(KEY_COUNT);
+            mActionDependentViewsUniqueIds = savedInstanceState.getStringArrayList(KEY_ACTION_DEPENDENT_VIEWS_UNIQUE_IDS);
+            mElementIdAndUserInputMap = (HashMap<String, String>) savedInstanceState.getSerializable(KEY_ELEMENT_ID_AND_USER_INPUT_MAP);
+        }
     }
 
     @Override
@@ -108,10 +122,68 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         mFragmentFormBinding = DataBindingUtil.inflate(inflater, R.layout.fragment_form, container, false);
         View root = mFragmentFormBinding.getRoot();
 
-        mActionDependentViewsUniqueIds = new ArrayList<>();
         mContext = getActivity();
         mBaseLayout = mFragmentFormBinding.baseLayout;
 
+        displayForm();
+
+        if (savedInstanceState != null) {
+            restoreViews();
+        }
+
+        Button nextButton = mFragmentFormBinding.nextButton;
+        nextButton.setOnClickListener(this);
+
+        Button previousButton = mFragmentFormBinding.previousButton;
+        previousButton.setOnClickListener(this);
+
+        if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_FIRST) {
+            previousButton.setVisibility(View.GONE);
+        } else if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_LAST) {
+            nextButton.setText(mContext.getResources().getString(R.string.submit_button));
+        }
+        return root;
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putInt(KEY_COUNT, mCount);
+        outState.putStringArrayList(KEY_ACTION_DEPENDENT_VIEWS_UNIQUE_IDS, mActionDependentViewsUniqueIds);
+        setElementIdAndUserInputMap();
+        outState.putSerializable(KEY_ELEMENT_ID_AND_USER_INPUT_MAP, mElementIdAndUserInputMap);
+
+        super.onSaveInstanceState(outState);
+    }
+
+    private void setElementIdAndUserInputMap() {
+        int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
+        for (int i = 0; i < baseLayoutChildViewsCount; i++) {
+            View view1 = mBaseLayout.getChildAt(i);
+            if (view1.getVisibility() == View.VISIBLE) {
+                if (view1 instanceof EditText) {
+                    EditText editText = ((EditText) view1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String userInput = editText.getText().toString();
+                    mElementIdAndUserInputMap.put(elementId, userInput);
+                } else if (view1 instanceof Spinner) {
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String text = ((Spinner) view1).getSelectedItem().toString();
+                    mElementIdAndUserInputMap.put(elementId, text);
+                } else if (view1 instanceof LinearLayout) {
+                    LinearLayout ll = ((LinearLayout) view1);
+                    TextView dateTextView = (TextView) ll.getChildAt(1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String userInput = dateTextView.getText().toString();
+                    mElementIdAndUserInputMap.put(elementId, userInput);
+                }
+            }
+        }
+    }
+
+    private void displayForm() {
         List<Section> sections = mPage.getSections();
         for (int i = 0; i < sections.size(); i++) {
             Section section = sections.get(i);
@@ -132,7 +204,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                 switch (type) {
                     case "embeddedphoto":
                         ImageView imageView = new ImageView(mContext);
-                        LinearLayout.LayoutParams lpEmbeddedPhoto = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                        LinearLayout.LayoutParams lpEmbeddedPhoto = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 600);
                         imageView.setLayoutParams(lpEmbeddedPhoto);
                         imageView.setAdjustViewBounds(true);
                         imageView.setContentDescription("Photo");
@@ -151,6 +223,8 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         setViewTag(element, inputEditText);
                         if (element.getLabel().equals("Email address")) {
                             inputEditText.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+                        } else {
+                            inputEditText.setInputType(InputType.TYPE_CLASS_TEXT);
                         }
                         if (isADependentElement(element)) {
                             inputEditText.setVisibility(View.GONE);
@@ -160,7 +234,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 
                     case "formattednumeric":
                         EditText numericEditText = getEditText();
-                        numericEditText.setInputType(InputType.TYPE_CLASS_PHONE);
+                        numericEditText.setInputType(InputType.TYPE_CLASS_NUMBER);
                         numericEditText.setHint(element.getLabel());
                         setViewTag(element, numericEditText);
                         int maxLength = 13;
@@ -179,16 +253,16 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                             @Override
                             public void afterTextChanged(Editable editable) {
                                 int inputLength = numericEditText.getText().toString().length();
-                                if (count <= inputLength && (inputLength == 4 || inputLength == 8)) {
+                                if (mCount <= inputLength && (inputLength == 4 || inputLength == 8)) {
                                     numericEditText.setText(String.format("%s-", numericEditText.getText().toString()));
                                     int pos = numericEditText.getText().length();
                                     numericEditText.setSelection(pos);
-                                } else if (count >= inputLength && (inputLength == 4 || inputLength == 8)) {
+                                } else if (mCount >= inputLength && (inputLength == 4 || inputLength == 8)) {
                                     numericEditText.setText(numericEditText.getText().toString().substring(0, inputLength - 1));
                                     int pos = numericEditText.getText().length();
                                     numericEditText.setSelection(pos);
                                 }
-                                count = inputLength;
+                                mCount = inputLength;
 
                             }
                         });
@@ -230,6 +304,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                             DatePickerDialog startDateDialog = new DatePickerDialog(mContext, (datePicker, year1, month1, day1) -> {
                                 String selDate = year1 + "-" + (month1 + 1) + "-" + day1;
                                 textViewDate.setText(getFormattedDate(selDate));
+                                textViewDate.setError(null);
                             }, year, month, day);
                             calendar.setTime(new Date());
                             calendar.add(Calendar.YEAR, 0);
@@ -288,27 +363,53 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                 }
             }
         }
-        Button nextButton = mFragmentFormBinding.nextButton;
-        nextButton.setOnClickListener(this);
+    }
 
-        Button previousButton = mFragmentFormBinding.previousButton;
-        previousButton.setOnClickListener(this);
+    private void restoreViews() {
+        int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
+        for (int i = 0; i < baseLayoutChildViewsCount; i++) {
+            View view1 = mBaseLayout.getChildAt(i);
+            if (view1.getVisibility() == View.VISIBLE) {
+                if (view1 instanceof EditText) {
+                    EditText editText = ((EditText) view1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String input = mElementIdAndUserInputMap.get(elementId);
+                    editText.setText(input);
+                } else if (view1 instanceof Spinner) {
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String input = mElementIdAndUserInputMap.get(elementId);
+                    Spinner spinner = (Spinner) view1;
+                    int selection;
+                    switch (input) {
+                        case "Select":
+                            selection = 0;
+                            break;
+                        case "Yes":
+                            selection = 1;
+                            break;
+                        default:
+                            selection = 2;
+                            break;
+                    }
+                    spinner.setSelection(selection);
 
-        Button submitButton = mFragmentFormBinding.submitButton;
-        submitButton.setOnClickListener(this);
-
-        if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_FIRST) {
-            previousButton.setVisibility(View.GONE);
-        } else if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_LAST) {
-            nextButton.setVisibility(View.GONE);
-            submitButton.setVisibility(View.VISIBLE);
+                } else if (view1 instanceof LinearLayout) {
+                    LinearLayout ll = ((LinearLayout) view1);
+                    TextView dateTextView = (TextView) ll.getChildAt(1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String input = mElementIdAndUserInputMap.get(elementId);
+                    dateTextView.setText(input);
+                }
+            }
         }
-        return root;
     }
 
     private void showViewWithTag(String target, int visible) {
-        mBaseLayoutChildViewsCount = mBaseLayout.getChildCount();
-        for (int j = 0; j < mBaseLayoutChildViewsCount; j++) {
+        int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
+        for (int j = 0; j < baseLayoutChildViewsCount; j++) {
             View view1 = mBaseLayout.getChildAt(j);
             Object tag = view1.getTag();
             if (tag != null) {
@@ -402,8 +503,8 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 
     public boolean isValidated() {
         boolean isValid = true;
-        mBaseLayoutChildViewsCount = mBaseLayout.getChildCount();
-        for (int i = 0; i < mBaseLayoutChildViewsCount; i++) {
+        int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
+        for (int i = 0; i < baseLayoutChildViewsCount; i++) {
             View view1 = mBaseLayout.getChildAt(i);
             if (view1.getVisibility() == View.VISIBLE) {
                 if (view1 instanceof EditText) {
@@ -482,17 +583,13 @@ public class FormFragment extends Fragment implements View.OnClickListener {
             case R.id.next_button:
                 if (isValidated()) {
                     saveValue();
-                    mOnPageChangeListener.onNextPageClick();
+                    if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_LAST) {
+                        showVerifyInputsDialog();
+                    } else mOnPageChangeListener.onNextPageClick();
                 }
                 break;
             case R.id.previous_button:
                 mOnPageChangeListener.onPrevPageClick();
-                break;
-            case R.id.submit_button:
-                if (isValidated()) {
-                    saveValue();
-                    showVerifyInputsDialog();
-                }
                 break;
         }
     }
@@ -515,7 +612,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 //                    Log.e(mContext.getResources().getString(R.string.app_name),
 //                            "Could not parse malformed JSON: \"" + page + "\"");
 //                }
-                pages.add(page);
+                pages.add("Page " + String.valueOf(i) + ": " + page);
             }
         }
         String message = TextUtils.join("\n", pages);
