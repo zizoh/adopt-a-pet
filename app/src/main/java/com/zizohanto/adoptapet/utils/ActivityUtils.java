@@ -17,21 +17,21 @@ public class ActivityUtils {
      * performed by the {@code fragmentManager}.
      */
     public static void addFirstFragmentToActivity(@NonNull FragmentManager fragmentManager,
-                                                  @NonNull Fragment fragment, int frameId) {
+                                                  @NonNull Fragment fragment, int frameId, String tag) {
         checkNotNull(fragmentManager);
         checkNotNull(fragment);
         fragmentManager.beginTransaction()
-                .add(frameId, fragment)
+                .add(frameId, fragment, tag)
                 .commit();
     }
 
     public static void addSubsequentFragmentToActivity(@NonNull FragmentManager fragmentManager,
-                                                       @NonNull Fragment fragment, int frameId) {
+                                                       @NonNull Fragment fragment, int frameId, String tag) {
         checkNotNull(fragmentManager);
         checkNotNull(fragment);
         fragmentManager.beginTransaction()
-                .replace(frameId, fragment)
-                .addToBackStack(null)
+                .replace(frameId, fragment, tag)
+                .addToBackStack(tag)
                 .commit();
     }
 }

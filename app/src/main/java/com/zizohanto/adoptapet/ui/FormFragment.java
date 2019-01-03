@@ -15,6 +15,7 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +36,7 @@ import com.squareup.picasso.Picasso;
 import com.zizohanto.adoptapet.Constants;
 import com.zizohanto.adoptapet.R;
 import com.zizohanto.adoptapet.data.Element;
+import com.zizohanto.adoptapet.data.FormState;
 import com.zizohanto.adoptapet.data.Page;
 import com.zizohanto.adoptapet.data.Rule;
 import com.zizohanto.adoptapet.data.Section;
@@ -75,6 +77,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     private LinearLayout mBaseLayout;
     private FragmentFormBinding mFragmentFormBinding;
     private OnPageChangeListener mOnPageChangeListener;
+    private OnFragmentActivityCreatedListener mOnFragmentActivityCreatedListener;
 
     public FormFragment() {
         // Requires empty public constructor
@@ -166,6 +169,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                     String elementId = elementIdAndMandatoryTag.get(0);
                     String userInput = editText.getText().toString();
                     mElementIdAndUserInputMap.put(elementId, userInput);
+
                 } else if (view1 instanceof Spinner) {
                     ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
                     String elementId = elementIdAndMandatoryTag.get(0);
@@ -366,43 +370,44 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     }
 
     private void restoreViews() {
+        Log.e(TAG, "restoreViews: " + SharedPreferenceUtils.convertToJSONString(mElementIdAndUserInputMap));
         int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
         for (int i = 0; i < baseLayoutChildViewsCount; i++) {
             View view1 = mBaseLayout.getChildAt(i);
-            if (view1.getVisibility() == View.VISIBLE) {
-                if (view1 instanceof EditText) {
-                    EditText editText = ((EditText) view1);
-                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
-                    String elementId = elementIdAndMandatoryTag.get(0);
-                    String input = mElementIdAndUserInputMap.get(elementId);
-                    editText.setText(input);
-                } else if (view1 instanceof Spinner) {
-                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
-                    String elementId = elementIdAndMandatoryTag.get(0);
-                    String input = mElementIdAndUserInputMap.get(elementId);
-                    Spinner spinner = (Spinner) view1;
-                    int selection;
-                    switch (input) {
-                        case "Select":
-                            selection = 0;
-                            break;
-                        case "Yes":
-                            selection = 1;
-                            break;
-                        default:
-                            selection = 2;
-                            break;
-                    }
-                    spinner.setSelection(selection);
 
-                } else if (view1 instanceof LinearLayout) {
-                    LinearLayout ll = ((LinearLayout) view1);
-                    TextView dateTextView = (TextView) ll.getChildAt(1);
-                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
-                    String elementId = elementIdAndMandatoryTag.get(0);
-                    String input = mElementIdAndUserInputMap.get(elementId);
-                    dateTextView.setText(input);
+            if (view1 instanceof EditText) {
+                EditText editText = ((EditText) view1);
+                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                String elementId = elementIdAndMandatoryTag.get(0);
+                String input = mElementIdAndUserInputMap.get(elementId);
+                Log.e(TAG, "input: " + input);
+                editText.setText(input);
+            } else if (view1 instanceof Spinner) {
+                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                String elementId = elementIdAndMandatoryTag.get(0);
+                String input = mElementIdAndUserInputMap.get(elementId);
+                Spinner spinner = (Spinner) view1;
+                int selection;
+                switch (input) {
+                    case "Select":
+                        selection = 0;
+                        break;
+                    case "Yes":
+                        selection = 1;
+                        break;
+                    default:
+                        selection = 2;
+                        break;
                 }
+                spinner.setSelection(selection);
+
+            } else if (view1 instanceof LinearLayout) {
+                LinearLayout ll = ((LinearLayout) view1);
+                TextView dateTextView = (TextView) ll.getChildAt(1);
+                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
+                String elementId = elementIdAndMandatoryTag.get(0);
+                String input = mElementIdAndUserInputMap.get(elementId);
+                dateTextView.setText(input);
             }
         }
     }
@@ -495,6 +500,12 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         super.onAttach(context);
         if (context instanceof OnPageChangeListener) {
             mOnPageChangeListener = (OnPageChangeListener) context;
+        } else {
+            throw new ClassCastException(context.toString()
+                    + getString(R.string.error_interface));
+        }
+        if (context instanceof OnFragmentActivityCreatedListener) {
+            mOnFragmentActivityCreatedListener = (OnFragmentActivityCreatedListener) context;
         } else {
             throw new ClassCastException(context.toString()
                     + getString(R.string.error_interface));
@@ -632,6 +643,28 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         void onPrevPageClick();
 
         void onNextPageClick();
+    }
+
+    public FormState getFormState() {
+        setElementIdAndUserInputMap();
+        return new FormState(mElementIdAndUserInputMap);
+    }
+
+    public void restoreState(FormState state) {
+        mElementIdAndUserInputMap = state.getElementIdAndUserInputMap();
+        restoreViews();
+    }
+
+    @Override
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        mOnFragmentActivityCreatedListener.onFragmentActivityCreated();
+    }
+
+    interface OnFragmentActivityCreatedListener {
+
+        void onFragmentActivityCreated();
     }
 
 }

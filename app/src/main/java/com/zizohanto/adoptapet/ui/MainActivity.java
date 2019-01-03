@@ -2,6 +2,8 @@ package com.zizohanto.adoptapet.ui;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 
@@ -9,6 +11,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.zizohanto.adoptapet.Constants;
 import com.zizohanto.adoptapet.R;
+import com.zizohanto.adoptapet.data.FormState;
 import com.zizohanto.adoptapet.data.Page;
 import com.zizohanto.adoptapet.data.Pet;
 import com.zizohanto.adoptapet.utils.ActivityUtils;
@@ -16,15 +19,19 @@ import com.zizohanto.adoptapet.utils.ActivityUtils;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class MainActivity extends AppCompatActivity implements FormFragment.OnPageChangeListener {
+public class MainActivity extends AppCompatActivity implements FormFragment.OnPageChangeListener,
+        FormFragment.OnFragmentActivityCreatedListener {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final String KEY_CURRENT_PAGE_NUMBER = "com.zizohanto.adoptapet.ui.KEY_CURRENT_PAGE_NUMBER";
+    private static final String KEY_NUMBER_OF_FRAGMENTS_CREATED = "com.zizohanto.adoptapet.ui.KEY_NUMBER_OF_FRAGMENTS_CREATED";
     int mCurrentPageNumber;
     private Page mPage;
     private Pet mPet;
+    private int mNumberOfFragmentsCreated;
 
     private FormFragment mFormFragment;
     private FormFragment mSubsequentFragment;
+    private FormState mExistingFragmentFormState;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +40,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
 
         if (savedInstanceState != null) {
             mCurrentPageNumber = savedInstanceState.getInt(KEY_CURRENT_PAGE_NUMBER);
+            mNumberOfFragmentsCreated = savedInstanceState.getInt(KEY_NUMBER_OF_FRAGMENTS_CREATED);
         }
 
         String petJsonString = loadJSONFromAsset(this);
@@ -53,6 +61,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putInt(KEY_CURRENT_PAGE_NUMBER, mCurrentPageNumber);
+        outState.putInt(KEY_NUMBER_OF_FRAGMENTS_CREATED, mNumberOfFragmentsCreated);
 
         super.onSaveInstanceState(outState);
     }
@@ -81,7 +90,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
             // Create the fragment
             mFormFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
             ActivityUtils.addFirstFragmentToActivity(
-                    getSupportFragmentManager(), mFormFragment, R.id.content_frame);
+                    getSupportFragmentManager(), mFormFragment, R.id.content_frame, String.valueOf(mCurrentPageNumber));
         }
     }
 
@@ -111,10 +120,28 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     }
 
     private void goToPage(Page page) {
-        mSubsequentFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
-        ActivityUtils.addSubsequentFragmentToActivity(
-                getSupportFragmentManager(), mSubsequentFragment, R.id.content_frame);
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        fragmentManager.executePendingTransactions();
+        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
 
+        mSubsequentFragment = (FormFragment)
+                fragmentManager.findFragmentByTag(String.valueOf(mCurrentPageNumber));
+        if (mSubsequentFragment == null) {
+            mSubsequentFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
+            ActivityUtils.addSubsequentFragmentToActivity(
+                    fragmentManager, mSubsequentFragment, R.id.content_frame, String.valueOf(mCurrentPageNumber));
+
+        } else {
+            // If the fragment already existed, we need to pull the existing form state.
+            mExistingFragmentFormState = mSubsequentFragment.getFormState();
+
+            if (mSubsequentFragment.isAdded()) { // if the fragment is already in container
+                fragmentTransaction.show(mSubsequentFragment);
+            } else { // fragment needs to be added to frame container
+                fragmentTransaction.replace(R.id.content_frame, mSubsequentFragment, String.valueOf(mCurrentPageNumber));
+            }
+            fragmentTransaction.commit();
+        }
     }
 
     @Override
@@ -123,4 +150,19 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
 
         if (mCurrentPageNumber > 0) mCurrentPageNumber--;
     }
+
+    @Override
+    public void onFragmentActivityCreated() {
+        mNumberOfFragmentsCreated++;
+
+        if (mSubsequentFragment != null && fragmentCreatedFirstTime()) {
+            // dump the existing fragment state in the fragment displayed
+            mSubsequentFragment.restoreState(mExistingFragmentFormState);
+        }
+    }
+
+    private boolean fragmentCreatedFirstTime() {
+        return mNumberOfFragmentsCreated != (mCurrentPageNumber + 1);
+    }
+
 }
