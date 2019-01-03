@@ -6,6 +6,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -107,7 +108,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     public void onPrevPageClick() {
         if (mCurrentPageNumber > 0) {
             mCurrentPageNumber--;
-            goToPage(mPet.getPages().get(mCurrentPageNumber));
+            goToPage();
         }
     }
 
@@ -115,11 +116,12 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     public void onNextPageClick() {
         if (mCurrentPageNumber < mPet.getPages().size() - 1) {
             mCurrentPageNumber++;
-            goToPage(mPet.getPages().get(mCurrentPageNumber));
+            goToPage();
         }
     }
 
-    private void goToPage(Page page) {
+    private void goToPage() {
+        Page page = mPet.getPages().get(mCurrentPageNumber);
         FragmentManager fragmentManager = getSupportFragmentManager();
         fragmentManager.executePendingTransactions();
         FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
@@ -146,9 +148,12 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
 
     @Override
     public void onBackPressed() {
-        super.onBackPressed();
-
-        if (mCurrentPageNumber > 0) mCurrentPageNumber--;
+        if (mCurrentPageNumber > 0) {
+            mCurrentPageNumber--;
+            goToPage();
+        } else {
+            Toast.makeText(this, "Already on the first page", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -156,7 +161,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
         mNumberOfFragmentsCreated++;
 
         if (mSubsequentFragment != null && fragmentCreatedFirstTime()) {
-            // dump the existing fragment state in the fragment displayed
+            // dump the existing form state in the fragment displayed
             mSubsequentFragment.restoreState(mExistingFragmentFormState);
         }
     }
