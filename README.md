@@ -4,8 +4,7 @@
 App populates sets of views dynamically based on questions read from a JSON file
 
 ## Screenshot
-<img src="screenshots/1_Page.png" height="400" alt="Screenshot"/> 
-<img src="screenshots/2_Page_No_Selected.png" height="400" alt="Screenshot"/> <img src="screenshots/2_Page_Yes_Selected.png" height="400" alt="Screenshot"/>
+<img src="screenshots/1_Page.png" height="400" alt="Screenshot"/> <img src="screenshots/2_Page_No_Selected.png" height="400" alt="Screenshot"/> <img src="screenshots/2_Page_Yes_Selected.png" height="400" alt="Screenshot"/>
 
 ## App features
 * App dynamically displays views based on input from JSON file. Showing/hiding views as appropriate
