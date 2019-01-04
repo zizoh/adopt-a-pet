@@ -74,6 +74,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
             InputStream is = context.getAssets().open("pet_adoption-1.json");
             int size = is.available();
             byte[] buffer = new byte[size];
+            //noinspection ResultOfMethodCallIgnored
             is.read(buffer);
             is.close();
             json = new String(buffer, "UTF-8");
@@ -131,7 +132,7 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
                 fragmentManager.findFragmentByTag(String.valueOf(mCurrentPageNumber));
         if (mSubsequentFragment == null) {
             mSubsequentFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
-            ActivityUtils.addSubsequentFragmentToActivity(
+            ActivityUtils.replaceExistingFragmentInActivity(
                     fragmentManager, mSubsequentFragment, R.id.content_frame, String.valueOf(mCurrentPageNumber));
 
         } else {

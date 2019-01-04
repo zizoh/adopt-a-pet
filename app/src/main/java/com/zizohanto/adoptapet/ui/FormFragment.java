@@ -7,7 +7,10 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.TextInputEditText;
+import android.support.design.widget.TextInputLayout;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.view.ContextThemeWrapper;
 import android.text.Editable;
@@ -15,7 +18,6 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -54,6 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
+@SuppressWarnings("unchecked")
 public class FormFragment extends Fragment implements View.OnClickListener {
     private static final String TAG = FormFragment.class.getSimpleName();
     private static final String EXTRA_PAGE = "com.zizohanto.adoptapet.ui.EXTRA_PAGE";
@@ -158,6 +161,13 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         super.onSaveInstanceState(outState);
     }
 
+    @Override
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        mOnFragmentActivityCreatedListener.onFragmentActivityCreated();
+    }
+
     private void setElementIdAndUserInputMap() {
         int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
         for (int i = 0; i < baseLayoutChildViewsCount; i++) {
@@ -175,7 +185,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                     String elementId = elementIdAndMandatoryTag.get(0);
                     String text = ((Spinner) view1).getSelectedItem().toString();
                     mElementIdAndUserInputMap.put(elementId, text);
-                } else if (view1 instanceof LinearLayout) {
+                } else if (view1 instanceof LinearLayout && !(view1 instanceof TextInputLayout)) {
                     LinearLayout ll = ((LinearLayout) view1);
                     TextView dateTextView = (TextView) ll.getChildAt(1);
                     ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
@@ -216,14 +226,25 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 
                         Picasso.with(mContext)
                                 .load(element.getFile())
-                                .placeholder(mContext.getResources().getDrawable(R.drawable.no_image))
+                                .placeholder(ContextCompat.getDrawable(mContext, R.drawable.no_image))
                                 .into(imageView);
                         mBaseLayout.addView(imageView);
                         break;
 
                     case "text":
-                        EditText inputEditText = getEditText();
-                        inputEditText.setHint(element.getLabel());
+                        TextInputLayout textInputLayout = getTextInputLayout();
+                        textInputLayout.setHint(element.getLabel());
+                        if (element.getIsMandatory()) {
+                            textInputLayout.setHelperText("*Required now");
+                        }
+                        TextInputEditText inputEditText = getTextInputEditText(textInputLayout);
+                        View.generateViewId();
+                        int textId = getElementIdInt(element.getUniqueId());
+                        inputEditText.setId(textId);
+                        textInputLayout.addView(inputEditText);
+                        setViewTag(element, textInputLayout);
+                        setViewTag(element, inputEditText);
+
                         setViewTag(element, inputEditText);
                         if (element.getLabel().equals("Email address")) {
                             inputEditText.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
@@ -231,18 +252,35 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                             inputEditText.setInputType(InputType.TYPE_CLASS_TEXT);
                         }
                         if (isADependentElement(element)) {
-                            inputEditText.setVisibility(View.GONE);
+                            textInputLayout.setVisibility(View.GONE);
                         }
-                        mBaseLayout.addView(inputEditText);
+                        mBaseLayout.addView(textInputLayout);
                         break;
 
                     case "formattednumeric":
-                        EditText numericEditText = getEditText();
-                        numericEditText.setInputType(InputType.TYPE_CLASS_NUMBER);
-                        numericEditText.setHint(element.getLabel());
+                        TextInputLayout numericInputLayout = getTextInputLayout();
+                        numericInputLayout.setHint(element.getLabel());
+                        if (element.getIsMandatory()) {
+                            numericInputLayout.setHelperText("*Required now");
+                        }
+                        TextInputEditText numericEditText = getTextInputEditText(numericInputLayout);
+                        numericInputLayout.addView(numericEditText);
+                        setViewTag(element, numericInputLayout);
                         setViewTag(element, numericEditText);
-                        int maxLength = 13;
-                        numericEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(maxLength)});
+
+                        setViewTag(element, numericEditText);
+                        if (isADependentElement(element)) {
+                            numericEditText.setVisibility(View.GONE);
+                        }
+
+
+                        View.generateViewId();
+                        int numericId = getNumericElementIdInt(element.getUniqueId());
+                        // To differentiate the ids of formattednumeric and text
+                        numericEditText.setId(numericId + 100);
+                        numericEditText.setInputType(InputType.TYPE_CLASS_NUMBER);
+
+                        numericEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(13)});
                         numericEditText.addTextChangedListener(new TextWatcher() {
                             @Override
                             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -273,19 +311,21 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         if (isADependentElement(element)) {
                             numericEditText.setVisibility(View.GONE);
                         }
-                        mBaseLayout.addView(numericEditText);
+                        mBaseLayout.addView(numericInputLayout);
                         break;
 
                     case "datetime":
                         LinearLayout linearLayout = new LinearLayout(mContext);
-                        LinearLayout.LayoutParams lpDate = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                        linearLayout.setLayoutParams(lpDate);
+                        linearLayout.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                         linearLayout.setOrientation(LinearLayout.VERTICAL);
                         setViewTag(element, linearLayout);
 
                         TextView textViewDateLabel = new TextView(mContext);
+                        LinearLayout.LayoutParams lpDate = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                        lpDate.setMargins(8, 0, 0, 0);
                         textViewDateLabel.setLayoutParams(lpDate);
-                        textViewDateLabel.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
+                        textViewDateLabel.setTextColor(ContextCompat.getColor(mContext, R.color.colorPrimaryDark));
+
                         textViewDateLabel.setTypeface(textViewDateLabel.getTypeface(), Typeface.BOLD);
                         textViewDateLabel.setTextAppearance(android.R.style.TextAppearance_Medium);
                         textViewDateLabel.setText(element.getLabel());
@@ -293,11 +333,13 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 
                         TextView textViewDate = new TextView(mContext);
                         textViewDate.setLayoutParams(lpDate);
-                        textViewDate.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
+                        textViewDate.setTextColor(ContextCompat.getColor(mContext, R.color.white));
                         textViewDate.setTypeface(textViewDate.getTypeface(), Typeface.BOLD);
                         textViewDate.setInputType(InputType.TYPE_CLASS_DATETIME);
                         textViewDate.setTextAppearance(android.R.style.TextAppearance_Medium);
                         textViewDate.setText(Constants.PICK_A_DATE);
+                        textViewDate.setBackgroundColor(ContextCompat.getColor(mContext, R.color.dateColor));
+                        textViewDate.setPadding(8, 8, 8, 8);
                         setViewTag(element, textViewDate);
 
                         textViewDate.setOnClickListener(view -> {
@@ -369,47 +411,12 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         }
     }
 
-    private void restoreViews() {
-        Log.e(TAG, "restoreViews: " + SharedPreferenceUtils.convertToJSONString(mElementIdAndUserInputMap));
-        int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
-        for (int i = 0; i < baseLayoutChildViewsCount; i++) {
-            View view1 = mBaseLayout.getChildAt(i);
+    private int getElementIdInt(String uniqueId) {
+        return Integer.valueOf(uniqueId.substring(5));
+    }
 
-            if (view1 instanceof EditText) {
-                EditText editText = ((EditText) view1);
-                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
-                String elementId = elementIdAndMandatoryTag.get(0);
-                String input = mElementIdAndUserInputMap.get(elementId);
-                Log.e(TAG, "input: " + input);
-                editText.setText(input);
-            } else if (view1 instanceof Spinner) {
-                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
-                String elementId = elementIdAndMandatoryTag.get(0);
-                String input = mElementIdAndUserInputMap.get(elementId);
-                Spinner spinner = (Spinner) view1;
-                int selection;
-                switch (input) {
-                    case "Select":
-                        selection = 0;
-                        break;
-                    case "Yes":
-                        selection = 1;
-                        break;
-                    default:
-                        selection = 2;
-                        break;
-                }
-                spinner.setSelection(selection);
-
-            } else if (view1 instanceof LinearLayout) {
-                LinearLayout ll = ((LinearLayout) view1);
-                TextView dateTextView = (TextView) ll.getChildAt(1);
-                ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
-                String elementId = elementIdAndMandatoryTag.get(0);
-                String input = mElementIdAndUserInputMap.get(elementId);
-                dateTextView.setText(input);
-            }
-        }
+    private int getNumericElementIdInt(String uniqueId) {
+        return Integer.valueOf(uniqueId.substring(17));
     }
 
     private void showViewWithTag(String target, int visible) {
@@ -427,26 +434,35 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         }
     }
 
-    private ViewGroup.LayoutParams getLayoutParams() {
+    private TextInputLayout getTextInputLayout() {
+        TextInputLayout textInputLayout = new TextInputLayout(new ContextThemeWrapper(mContext,
+                R.style.myStyle));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        layoutParams.setMargins(0, 5, 0, 5);
-        return layoutParams;
+        layoutParams.setMargins(0, 8, 0, 0);
+        textInputLayout.setLayoutParams(layoutParams);
+        textInputLayout.setBoxBackgroundColor(
+                ContextCompat.getColor(mContext, R.color.boxcolor));
+        textInputLayout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+        textInputLayout.setPadding(18, 0, 0, 0);
+        return textInputLayout;
     }
 
-    @NonNull
-    private EditText getEditText() {
-        EditText inputEditText = new EditText(mContext);
-        inputEditText.setLayoutParams(getLayoutParams());
-        inputEditText.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
-        return inputEditText;
+    private TextInputEditText getTextInputEditText(TextInputLayout textInputLayout) {
+        TextInputEditText editText = new TextInputEditText(textInputLayout.getContext());
+        editText.setInputType(InputType.TYPE_CLASS_TEXT);
+        editText.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+        return editText;
     }
 
     @NonNull
     private TextView getSectionLabelTextView() {
         TextView textViewLabel = new TextView(mContext);
         LinearLayout.LayoutParams textViewParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        textViewParams.setMargins(0, 16, 0, 8);
         textViewLabel.setLayoutParams(textViewParams);
-        textViewLabel.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
+        textViewLabel.setTextColor(ContextCompat.getColor(mContext, R.color.colorPrimaryDark));
+
         textViewLabel.setTypeface(textViewLabel.getTypeface(), Typeface.BOLD);
         textViewLabel.setTextAppearance(android.R.style.TextAppearance_Medium);
         textViewLabel.setMaxLines(1);
@@ -457,7 +473,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         TextView textView = new TextView(mContext);
         LinearLayout.LayoutParams lpYesNo = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         textView.setLayoutParams(lpYesNo);
-        textView.setTextColor(getResources().getColor(R.color.colorPrimaryDark));
+        textView.setTextColor(ContextCompat.getColor(mContext, R.color.colorPrimaryDark));
         textView.setTypeface(textView.getTypeface(), Typeface.BOLD);
         textView.setTextAppearance(android.R.style.TextAppearance_Medium);
         return textView;
@@ -518,32 +534,42 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         for (int i = 0; i < baseLayoutChildViewsCount; i++) {
             View view1 = mBaseLayout.getChildAt(i);
             if (view1.getVisibility() == View.VISIBLE) {
-                if (view1 instanceof EditText) {
-                    EditText editText = ((EditText) view1);
+                if (view1 instanceof TextInputLayout) {
                     ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
                     String elementId = elementIdAndMandatoryTag.get(0);
-                    Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
-                    String userInput = editText.getText().toString();
-                    if (elementIsMandatory) {
-                        if (!userInput.isEmpty()) {
-                            if (isEmailEntry(editText)) {
-                                if (!ValidatorUtils.isValidEmailAddress(userInput)) {
-                                    isValid = false;
-                                    editText.setError("Please enter a valid email");
-                                } else mElementIdAndUserInputMap.put(elementId, userInput);
+                    int textId;
+                    try {
+                        textId = getElementIdInt(elementId);
+                    } catch (NumberFormatException e) {
+                        textId = getNumericElementIdInt(elementId);
+                    }
+                    View view2 = view1.findViewById(textId);
+                    if (view2 instanceof EditText) {
+                        EditText editText = ((EditText) view2);
+
+                        Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
+                        String userInput = editText.getText().toString();
+                        if (elementIsMandatory) {
+                            if (!userInput.isEmpty()) {
+                                if (isEmailEntry(editText)) {
+                                    if (!ValidatorUtils.isValidEmailAddress(userInput)) {
+                                        isValid = false;
+                                        editText.setError("Please enter a valid email");
+                                    } else mElementIdAndUserInputMap.put(elementId, userInput);
+                                }
+                                if (isPhoneEntry(editText)) {
+                                    if (!ValidatorUtils.isValidPhoneNumber(userInput)) {
+                                        isValid = false;
+                                        editText.setError("Please enter a valid Nigerian phone number");
+                                    } else mElementIdAndUserInputMap.put(elementId, userInput);
+                                }
+                                mElementIdAndUserInputMap.put(elementId, userInput);
+                            } else {
+                                isValid = false;
+                                editText.setError("Please enter the required text");
                             }
-                            if (isPhoneEntry(editText)) {
-                                if (!ValidatorUtils.isValidPhoneNumber(userInput)) {
-                                    isValid = false;
-                                    editText.setError("Please enter a valid Nigerian phone number");
-                                } else mElementIdAndUserInputMap.put(elementId, userInput);
-                            }
-                            mElementIdAndUserInputMap.put(elementId, userInput);
-                        } else {
-                            isValid = false;
-                            editText.setError("Please enter the required text");
-                        }
-                    } else mElementIdAndUserInputMap.put(elementId, userInput);
+                        } else mElementIdAndUserInputMap.put(elementId, userInput);
+                    }
                 } else if (view1 instanceof Spinner) {
                     ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
                     String elementId = elementIdAndMandatoryTag.get(0);
@@ -613,17 +639,11 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     private void showVerifyInputsDialog() {
         ArrayList<String> pages = new ArrayList<>();
         for (int i = 0; i < mCurrentPageNumber + 1; i++) {
-            if (SharedPreferenceUtils.prefExists("page_" + String.valueOf(i), mContext)) {
+            try {
                 String page = SharedPreferenceUtils.getPrefDefaults("page_" + String.valueOf(i), mContext);
-//                JSONObject obj;
-//                try {
-//                    obj = new JSONObject(page);
-//
-//                } catch (Throwable t) {
-//                    Log.e(mContext.getResources().getString(R.string.app_name),
-//                            "Could not parse malformed JSON: \"" + page + "\"");
-//                }
                 pages.add("Page " + String.valueOf(i) + ": " + page);
+            } catch (NullPointerException e) {
+                System.out.print("NullPointerException caught: " + e);
             }
         }
         String message = TextUtils.join("\n", pages);
@@ -638,13 +658,6 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                 .show();
     }
 
-    interface OnPageChangeListener {
-
-        void onPrevPageClick();
-
-        void onNextPageClick();
-    }
-
     public FormState getFormState() {
         setElementIdAndUserInputMap();
         return new FormState(mElementIdAndUserInputMap);
@@ -655,11 +668,63 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         restoreViews();
     }
 
-    @Override
-    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    private void restoreViews() {
+        int baseLayoutChildViewsCount = mBaseLayout.getChildCount();
+        for (int i = 0; i < baseLayoutChildViewsCount; i++) {
+            View view1 = mBaseLayout.getChildAt(i);
+            if (view1.getVisibility() == View.VISIBLE) {
+                if (view1 instanceof TextInputLayout) {
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    int textId;
+                    try {
+                        textId = getElementIdInt(elementId);
+                    } catch (NumberFormatException e) {
+                        textId = getNumericElementIdInt(elementId + 100);
+                    }
+                    View view2 = view1.findViewById(textId);
+                    if (view2 instanceof EditText) {
+                        EditText editText = ((EditText) view2);
+                        String input = mElementIdAndUserInputMap.get(elementId);
+                        editText.setText(input);
+                    }
+                } else if (view1 instanceof Spinner) {
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) view1.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String input = mElementIdAndUserInputMap.get(elementId);
+                    Spinner spinner = (Spinner) view1;
+                    int selection = 0;
+                    if (input != null) {
+                        switch (input) {
+                            case "Select":
+                                selection = 0;
+                                break;
+                            case "Yes":
+                                selection = 1;
+                                break;
+                            default:
+                                selection = 2;
+                                break;
+                        }
+                    }
+                    spinner.setSelection(selection);
+                } else if (view1 instanceof LinearLayout) {
+                    LinearLayout ll = ((LinearLayout) view1);
+                    TextView dateTextView = (TextView) ll.getChildAt(1);
+                    ArrayList<String> elementIdAndMandatoryTag = (ArrayList<String>) dateTextView.getTag();
+                    String elementId = elementIdAndMandatoryTag.get(0);
+                    String input = mElementIdAndUserInputMap.get(elementId);
+                    dateTextView.setText(input);
+                }
+            }
+        }
+    }
 
-        mOnFragmentActivityCreatedListener.onFragmentActivityCreated();
+    interface OnPageChangeListener {
+
+        void onPrevPageClick();
+
+        void onNextPageClick();
     }
 
     interface OnFragmentActivityCreatedListener {

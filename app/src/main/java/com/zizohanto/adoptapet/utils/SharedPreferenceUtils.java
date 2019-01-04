@@ -24,15 +24,6 @@ public class SharedPreferenceUtils {
         return preferences.getString(key, null);
     }
 
-    public static boolean prefExists(String key, Context context) {
-        Boolean isExist = false;
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-        if (preferences.contains(key)) {
-            isExist = true;
-        }
-        return isExist;
-    }
-
     public static String convertToJSONString(HashMap<String, String> input) {
         String jsonString = "";
         JSONObject jsonObject = new JSONObject(input);

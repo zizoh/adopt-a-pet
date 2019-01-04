@@ -25,8 +25,8 @@ public class ActivityUtils {
                 .commit();
     }
 
-    public static void addSubsequentFragmentToActivity(@NonNull FragmentManager fragmentManager,
-                                                       @NonNull Fragment fragment, int frameId, String tag) {
+    public static void replaceExistingFragmentInActivity(@NonNull FragmentManager fragmentManager,
+                                                         @NonNull Fragment fragment, int frameId, String tag) {
         checkNotNull(fragmentManager);
         checkNotNull(fragment);
         fragmentManager.beginTransaction()
