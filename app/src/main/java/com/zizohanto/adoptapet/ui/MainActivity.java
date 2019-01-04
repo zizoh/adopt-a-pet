@@ -6,6 +6,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
@@ -76,8 +77,8 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
             is.read(buffer);
             is.close();
             json = new String(buffer, "UTF-8");
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        } catch (IOException exception) {
+            Log.e(TAG, "Error writing/reading from the JSON file.", exception);
             return null;
         }
         return json;
