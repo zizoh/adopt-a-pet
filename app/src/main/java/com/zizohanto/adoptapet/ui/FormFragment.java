@@ -160,8 +160,6 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     public void onSaveInstanceState(@NonNull Bundle outState) {
         outState.putInt(KEY_COUNT, mCount);
         outState.putStringArrayList(KEY_ACTION_DEPENDENT_VIEWS_UNIQUE_IDS, mActionDependentViewsUniqueIds);
-        // TODO: confirm which callback is always called before onSaveInstanceState so that setElementIdAndUserInputMap is called there
-        setElementIdAndUserInputMap();
         outState.putSerializable(KEY_ELEMENT_ID_AND_USER_INPUT_MAP, mElementIdAndUserInputMap);
 
         super.onSaveInstanceState(outState);
@@ -178,6 +176,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     public void onDestroyView() {
         super.onDestroyView();
 
+        setElementIdAndUserInputMap();
         mIsFirstTimeFragmentCreation = false;
     }
 
@@ -670,7 +669,6 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     }
 
     public FormState getFormState() {
-        setElementIdAndUserInputMap();
         return new FormState(mElementIdAndUserInputMap);
     }
 
