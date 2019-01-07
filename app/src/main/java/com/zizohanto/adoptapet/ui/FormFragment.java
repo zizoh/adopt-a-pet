@@ -1,5 +1,6 @@
 package com.zizohanto.adoptapet.ui;
 
+import android.annotation.SuppressLint;
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.databinding.DataBindingUtil;
@@ -7,6 +8,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.TextInputEditText;
 import android.support.design.widget.TextInputLayout;
 import android.support.v4.app.Fragment;
@@ -18,13 +20,13 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -76,6 +78,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     private int mCurrentPageNumber;
     private int mCurrentPagePosition;
     private int mCount;
+    private boolean mIsFirstTimeFragmentCreation = true;
     private HashMap<String, String> mElementIdAndUserInputMap;
     private LinearLayout mBaseLayout;
     private FragmentFormBinding mFragmentFormBinding;
@@ -121,6 +124,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         }
     }
 
+    @SuppressLint("RestrictedApi")
     @Override
     public View onCreateView(@Nullable LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -137,16 +141,17 @@ public class FormFragment extends Fragment implements View.OnClickListener {
             restoreViews();
         }
 
-        Button nextButton = mFragmentFormBinding.nextButton;
+        FloatingActionButton nextButton = mFragmentFormBinding.nextButton;
         nextButton.setOnClickListener(this);
 
-        Button previousButton = mFragmentFormBinding.previousButton;
+        FloatingActionButton previousButton = mFragmentFormBinding.previousButton;
         previousButton.setOnClickListener(this);
 
         if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_FIRST) {
             previousButton.setVisibility(View.GONE);
         } else if (mCurrentPagePosition == Constants.CURRENT_PAGE_POSITION_LAST) {
-            nextButton.setText(mContext.getResources().getString(R.string.submit_button));
+            Log.e(TAG, "CURRENT_PAGE_POSITION_LAST: ");
+            nextButton.setImageDrawable(ContextCompat.getDrawable(mContext, R.drawable.ic_done_24dp));
         }
         return root;
     }
@@ -155,6 +160,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     public void onSaveInstanceState(@NonNull Bundle outState) {
         outState.putInt(KEY_COUNT, mCount);
         outState.putStringArrayList(KEY_ACTION_DEPENDENT_VIEWS_UNIQUE_IDS, mActionDependentViewsUniqueIds);
+        // TODO: confirm which callback is always called before onSaveInstanceState so that setElementIdAndUserInputMap is called there
         setElementIdAndUserInputMap();
         outState.putSerializable(KEY_ELEMENT_ID_AND_USER_INPUT_MAP, mElementIdAndUserInputMap);
 
@@ -165,7 +171,14 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        mOnFragmentActivityCreatedListener.onFragmentActivityCreated();
+        mOnFragmentActivityCreatedListener.onFragmentActivityCreated(mIsFirstTimeFragmentCreation);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+
+        mIsFirstTimeFragmentCreation = false;
     }
 
     private void setElementIdAndUserInputMap() {
@@ -239,7 +252,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         }
                         TextInputEditText inputEditText = getTextInputEditText(textInputLayout);
                         View.generateViewId();
-                        int textId = getElementIdInt(element.getUniqueId());
+                        int textId = getNumberFromTextElementId(element.getUniqueId());
                         inputEditText.setId(textId);
                         textInputLayout.addView(inputEditText);
                         setViewTag(element, textInputLayout);
@@ -268,14 +281,12 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         setViewTag(element, numericInputLayout);
                         setViewTag(element, numericEditText);
 
-                        setViewTag(element, numericEditText);
                         if (isADependentElement(element)) {
                             numericEditText.setVisibility(View.GONE);
                         }
 
-
                         View.generateViewId();
-                        int numericId = getNumericElementIdInt(element.getUniqueId());
+                        int numericId = getNumberFromNumericElementId(element.getUniqueId());
                         // To differentiate the ids of formattednumeric and text
                         numericEditText.setId(numericId + 100);
                         numericEditText.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -338,7 +349,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                         textViewDate.setInputType(InputType.TYPE_CLASS_DATETIME);
                         textViewDate.setTextAppearance(android.R.style.TextAppearance_Medium);
                         textViewDate.setText(Constants.PICK_A_DATE);
-                        textViewDate.setBackgroundColor(ContextCompat.getColor(mContext, R.color.dateColor));
+                        textViewDate.setBackgroundColor(ContextCompat.getColor(mContext, R.color.boxcolor));
                         textViewDate.setPadding(8, 8, 8, 8);
                         setViewTag(element, textViewDate);
 
@@ -411,11 +422,11 @@ public class FormFragment extends Fragment implements View.OnClickListener {
         }
     }
 
-    private int getElementIdInt(String uniqueId) {
+    private int getNumberFromTextElementId(String uniqueId) {
         return Integer.valueOf(uniqueId.substring(5));
     }
 
-    private int getNumericElementIdInt(String uniqueId) {
+    private int getNumberFromNumericElementId(String uniqueId) {
         return Integer.valueOf(uniqueId.substring(17));
     }
 
@@ -539,18 +550,18 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                     String elementId = elementIdAndMandatoryTag.get(0);
                     int textId;
                     try {
-                        textId = getElementIdInt(elementId);
+                        textId = getNumberFromTextElementId(elementId);
                     } catch (NumberFormatException e) {
-                        textId = getNumericElementIdInt(elementId);
+                        textId = getNumberFromNumericElementId(elementId) + 100;
                     }
                     View view2 = view1.findViewById(textId);
                     if (view2 instanceof EditText) {
                         EditText editText = ((EditText) view2);
-
                         Boolean elementIsMandatory = Boolean.valueOf(elementIdAndMandatoryTag.get(1));
                         String userInput = editText.getText().toString();
                         if (elementIsMandatory) {
                             if (!userInput.isEmpty()) {
+                                Log.e(TAG, "isValidated: " + userInput);
                                 if (isEmailEntry(editText)) {
                                     if (!ValidatorUtils.isValidEmailAddress(userInput)) {
                                         isValid = false;
@@ -610,7 +621,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
     }
 
     private boolean isPhoneEntry(EditText editText) {
-        return InputType.TYPE_CLASS_PHONE == editText.getInputType();
+        return InputType.TYPE_CLASS_NUMBER == editText.getInputType();
     }
 
     @Override
@@ -678,9 +689,9 @@ public class FormFragment extends Fragment implements View.OnClickListener {
                     String elementId = elementIdAndMandatoryTag.get(0);
                     int textId;
                     try {
-                        textId = getElementIdInt(elementId);
+                        textId = getNumberFromTextElementId(elementId);
                     } catch (NumberFormatException e) {
-                        textId = getNumericElementIdInt(elementId + 100);
+                        textId = getNumberFromNumericElementId(elementId + 100);
                     }
                     View view2 = view1.findViewById(textId);
                     if (view2 instanceof EditText) {
@@ -729,7 +740,7 @@ public class FormFragment extends Fragment implements View.OnClickListener {
 
     interface OnFragmentActivityCreatedListener {
 
-        void onFragmentActivityCreated();
+        void onFragmentActivityCreated(Boolean isFirstTimeCreation);
     }
 
 }

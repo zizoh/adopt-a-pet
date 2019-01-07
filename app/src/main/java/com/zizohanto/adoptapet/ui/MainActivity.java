@@ -25,11 +25,10 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
         FormFragment.OnFragmentActivityCreatedListener {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final String KEY_CURRENT_PAGE_NUMBER = "com.zizohanto.adoptapet.ui.KEY_CURRENT_PAGE_NUMBER";
-    private static final String KEY_NUMBER_OF_FRAGMENTS_CREATED = "com.zizohanto.adoptapet.ui.KEY_NUMBER_OF_FRAGMENTS_CREATED";
+
     int mCurrentPageNumber;
     private Page mPage;
     private Pet mPet;
-    private int mNumberOfFragmentsCreated;
 
     private FormFragment mFormFragment;
     private FormFragment mSubsequentFragment;
@@ -42,7 +41,6 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
 
         if (savedInstanceState != null) {
             mCurrentPageNumber = savedInstanceState.getInt(KEY_CURRENT_PAGE_NUMBER);
-            mNumberOfFragmentsCreated = savedInstanceState.getInt(KEY_NUMBER_OF_FRAGMENTS_CREATED);
         }
 
         String petJsonString = loadJSONFromAsset(this);
@@ -63,7 +61,6 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putInt(KEY_CURRENT_PAGE_NUMBER, mCurrentPageNumber);
-        outState.putInt(KEY_NUMBER_OF_FRAGMENTS_CREATED, mNumberOfFragmentsCreated);
 
         super.onSaveInstanceState(outState);
     }
@@ -88,7 +85,6 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
     private void createFragment(Page page) {
         mFormFragment = (FormFragment)
                 getSupportFragmentManager().findFragmentByTag(String.valueOf(mCurrentPageNumber));
-
         if (mFormFragment == null) {
             // Create the fragment
             mFormFragment = FormFragment.newInstance(page, mCurrentPageNumber, getPagePosition());
@@ -158,18 +154,16 @@ public class MainActivity extends AppCompatActivity implements FormFragment.OnPa
         }
     }
 
+    /**
+     * @param isFirstTimeFragmentCreation is true if this fragment has not been created before
+     *                                    If true then there is nothing to restore
+     */
     @Override
-    public void onFragmentActivityCreated() {
-        mNumberOfFragmentsCreated++;
-
-        if (mSubsequentFragment != null && fragmentCreatedFirstTime()) {
+    public void onFragmentActivityCreated(Boolean isFirstTimeFragmentCreation) {
+        if (mSubsequentFragment != null && !isFirstTimeFragmentCreation) {
             // dump the existing form state in the fragment displayed
             mSubsequentFragment.restoreState(mExistingFragmentFormState);
         }
-    }
-
-    private boolean fragmentCreatedFirstTime() {
-        return mNumberOfFragmentsCreated != (mCurrentPageNumber + 1);
     }
 
 }
